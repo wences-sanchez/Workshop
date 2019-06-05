@@ -1,0 +1,57 @@
+---
+- name: Apache server installed
+  hosts: webservers
+  tasks:
+  - name: latest Apache version installed
+    yum:
+      name: httpd
+      state: latest
+    tags:
+      - cowsay
+  - name: latest firewalld version installed
+    yum:
+      name: firewalld
+      state: latest
+  - name: firewalld enabled and running
+    service:
+      name: firewalld
+      enabled: true
+      state: started
+  - name: firewalld permits http service
+    firewalld:
+      service: http
+      permanent: true
+      state: enabled
+      immediate: true
+
+  - name: Apache enabled and running
+    service:
+      name: httpd
+      enabled: true
+      state: started
+
+  - name: Check if EPEL repo is already configured.
+    stat:
+      path: "/etc/yum.repos.d/epel.repo"
+    register: epel_repofile_result
+
+  - name: Install EPEL repo.
+    yum:
+      name: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm"
+      state: present
+    register: result
+    until: result is succeeded
+    retries: 5
+    delay: 10
+    when: not epel_repofile_result.stat.exists
+
+  - name: Import EPEL GPG key.
+    rpm_key:
+      key: "/etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}"
+      state: present
+    when: not epel_repofile_result.stat.exists
+    ignore_errors: "{{ ansible_check_mode }}"
+  - name: intall cowsay
+    yum:
+      name: cowsay
+      state: latest
